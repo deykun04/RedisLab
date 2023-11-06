@@ -4,7 +4,6 @@ import colorlog
 import redis
 import logging
 
-
 logger = colorlog.getLogger()
 logger.setLevel(logging.INFO)
 # Встановлюємо колір для всіх рівнів логів
@@ -24,26 +23,26 @@ formatter = colorlog.ColoredFormatter(
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-
 # Додаємо обробник до логгера
 logger.addHandler(console_handler)
 
-
 # Підключення до сервера Redis
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
-pipe = r.pipeline()
-pipe.multi()
-# Додаємо операцію GET до транзакції
-pipe.get('consumer')
-# Додаємо операцію INCR до транзакції
-pipe.incr('count')
 
 
-# Виконуємо транзакцію і отримуємо результати
-# result = pipe.execute()
+def perform_redis_transaction():
+    pipe = r.pipeline()
+    pipe.multi()
+    # Додаємо операцію GET до транзакції
+    pipe.get('consumer')
+    # Додаємо операцію INCR до транзакції
+    pipe.incr('count')
 
-# Виводимо результати
-# print(result)
+    # Виконуємо транзакцію і отримуємо результати
+    result = pipe.execute()
+    print(result)
+
+
 # Процес No 1: Дозапис даних в блоковану чергу
 def process_1(data_to_enqueue):
     logger = logging.getLogger("Process 1")
@@ -51,6 +50,7 @@ def process_1(data_to_enqueue):
     # Додаємо дані до черги
     r.rpush("feedback", data_to_enqueue)
     logger.info(f"Додано дані до черги: {data_to_enqueue}")
+
 
 # Процес No 2: Зчитування даних з черги і запис у файл
 def process_2():
@@ -61,7 +61,6 @@ def process_2():
         if data:
             data = data[1].decode("utf-8")
             logger.info(f"Зчитано дані з черги: {data}")
-
             # Записуємо дані у текстовий файл
             with open("output.txt", "a") as file:
                 file.write(data + "\n")
@@ -80,3 +79,5 @@ if __name__ == '__main__':
     p2 = threading.Thread(target=process_2)
 p2.start()
 p2.join()
+
+r.connection_pool.disconnect()
